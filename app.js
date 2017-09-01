@@ -1,30 +1,24 @@
-var path = require('path')
-var express = require('express')
-var session = require('express-session')
-var MongoStore = require('connect-mongo')(session)
+var path = require('path');
+var express = require('express');
+var session = require('express-session');
+var MongoStore = require('connect-mongo')(session);
 var RedisStrore = require('connect-redis')(session)
-var flash = require('connect-flash')
-var config = require('config-lite')(__dirname)
-var pkg = require('./package')
-var favicon = require('serve-favicon')
-var logger = require('morgan')
-var cookieParser = require('cookie-parser')
-var bodyParser = require('body-parser')
+var flash = require('connect-flash');
+var config = require('config-lite')(__dirname);
+var routes = require('./routes');
+var pkg = require('./package');
+var winston = require('winston');
+var expressWinston = require('express-winston');
 
-var app = express()
+var app = express();
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'))
-app.set('view engine', 'ejs')
+// 设置模板目录
+app.set('views', path.join(__dirname, 'views'));
+// 设置模板引擎为 ejs
+app.set('view engine', 'ejs');
 
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')))
-app.use(logger('dev'))
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(cookieParser())
-app.use(express.static(path.join(__dirname, 'public')))
-
+// 设置静态文件目录
+app.use(express.static(path.join(__dirname, 'public')));
 // session 中间件
 app.use(session({
   name: config.session.key,// 设置 cookie 中保存 session id 的字段名称
@@ -41,41 +35,66 @@ app.use(session({
   })
 }))
 // flash 中间件，用来显示通知
-app.use(flash())
+app.use(flash());
+// 处理表单及文件上传的中间件
+app.use(require('express-formidable')({
+  uploadDir: path.join(__dirname, 'public/img'),// 上传文件目录
+  keepExtensions: true// 保留后缀
+}));
 
+// 设置模板全局常量
+app.locals.blog = {
+  title: pkg.name,
+  description: pkg.description
+};
 
+// 添加模板必需的三个变量
+app.use(function (req, res, next) {
+  res.locals.user = req.session.user;
+  res.locals.success = req.flash('success').toString();
+  res.locals.error = req.flash('error').toString();
+  next();
+});
+
+// 正常请求的日志
+app.use(expressWinston.logger({
+  transports: [
+    new (winston.transports.Console)({
+      json: true,
+      colorize: true
+    }),
+    new winston.transports.File({
+      filename: 'logs/success.log'
+    })
+  ]
+}));
 // 路由
-var index = require('./routes/index')
-var users = require('./routes/users')
-var signup = require('./routes/signup')
-var signin = require('./routes/signin')
-var signout = require('./routes/signout')
-var posts = require('./routes/posts')
+routes(app);
+// 错误请求的日志
+app.use(expressWinston.errorLogger({
+  transports: [
+    new winston.transports.Console({
+      json: true,
+      colorize: true
+    }),
+    new winston.transports.File({
+      filename: 'logs/error.log'
+    })
+  ]
+}));
 
-app.use('/', index)
-app.use('/users', users)
-app.use('/signup', signup)
-app.use('/signin', signin)
-app.use('/signout', signout)
-app.use('/posts', posts)
+// error page
+app.use(function (err, req, res, next) {
+  res.render('error', {
+    error: err
+  });
+});
 
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  var err = new Error('Not Found')
-  err.status = 404
-  next(err)
-})
-
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message
-  res.locals.error = req.app.get('env') === 'development' ? err : {}
-
-  // render the error page
-  res.status(err.status || 500)
-  res.render('error')
-})
-
-module.exports = app
+if (module.parent) {
+  module.exports = app;
+} else {
+  // 监听端口，启动程序
+  app.listen(config.port, function () {
+    console.log(`${pkg.name} listening on port ${config.port}`);
+  });
+}
