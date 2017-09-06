@@ -17,6 +17,7 @@ router.post('/', checkNotLogin, function(req, res, next) {
   var name = req.fields.name;
   var gender = req.fields.gender;
   var bio = req.fields.bio;
+  var date = new Date()
   var avatar = req.files.avatar.path.split(path.sep).pop();
   var password = req.fields.password;
   var repassword = req.fields.repassword;
@@ -56,6 +57,7 @@ router.post('/', checkNotLogin, function(req, res, next) {
     name: name,
     password: password,
     gender: gender,
+    date: date,
     bio: bio,
     avatar: avatar
   };

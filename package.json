@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --harmony ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha",
-    "start": "set NODE_ENV=production pm2 start app.js --node-args='--harmony' --name 'myblog'"
+    "start": "NODE_ENV=production pm2 start app.js --node-args='--harmony' --name 'myblog'"
   },
   "author": "nswbmw",
   "license": "MIT",
